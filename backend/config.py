@@ -12,11 +12,39 @@ OUTPUT_DIR = BASE_DIR / "exports"
 for directory in [UPLOAD_DIR, WORKSPACE_DIR, CHECKPOINT_DIR, OUTPUT_DIR]:
     directory.mkdir(parents=True, exist_ok=True)
 
-# SAM 2 Model Configuration
-# We are using the high-accuracy Large SAM 2.1 model
-SAM2_MODEL_TYPE = "sam2.1_hiera_large"
-SAM2_CHECKPOINT = CHECKPOINT_DIR / "sam2.1_hiera_large.pt"
-SAM2_CONFIG = "configs/sam2.1/sam2.1_hiera_l.yaml"  # Matches configs in sam2 repo
+# SAM 2 Model Configuration Mappings
+SAM2_MODELS = {
+    "tiny": {
+        "model_type": "sam2.1_hiera_tiny",
+        "config": "configs/sam2.1/sam2.1_hiera_t.yaml",
+        "checkpoint": "sam2.1_hiera_tiny.pt",
+        "url": "https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_tiny.pt",
+        "label": "SAM 2.1 Tiny (Fastest / Low VRAM)"
+    },
+    "small": {
+        "model_type": "sam2.1_hiera_small",
+        "config": "configs/sam2.1/sam2.1_hiera_s.yaml",
+        "checkpoint": "sam2.1_hiera_small.pt",
+        "url": "https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_small.pt",
+        "label": "SAM 2.1 Small"
+    },
+    "medium": {
+        "model_type": "sam2.1_hiera_base_plus",
+        "config": "configs/sam2.1/sam2.1_hiera_b+.yaml",
+        "checkpoint": "sam2.1_hiera_base_plus.pt",
+        "url": "https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_base_plus.pt",
+        "label": "SAM 2.1 Medium (Base+)"
+    },
+    "large": {
+        "model_type": "sam2.1_hiera_large",
+        "config": "configs/sam2.1/sam2.1_hiera_l.yaml",
+        "checkpoint": "sam2.1_hiera_large.pt",
+        "url": "https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_large.pt",
+        "label": "SAM 2.1 Large (High Accuracy)"
+    }
+}
+
+DEFAULT_MODEL = "large"
 
 # Server Configuration
 PORT = 8000

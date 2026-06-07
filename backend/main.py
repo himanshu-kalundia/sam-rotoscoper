@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from typing import List, Tuple, Dict
 
 # Import local backend modules
-from backend.config import UPLOAD_DIR, WORKSPACE_DIR, OUTPUT_DIR, BASE_DIR
+from backend.config import UPLOAD_DIR, WORKSPACE_DIR, OUTPUT_DIR, BASE_DIR, SAM2_MODELS, CHECKPOINT_DIR, DEFAULT_MODEL
 from backend import utils
 from backend import sam_helper
 
@@ -43,8 +43,18 @@ class ExportRequest(BaseModel):
     session_id: str
     export_mode: str  # 'overlay', 'green_screen', 'cutout', 'zip'
 
+class DownloadRequest(BaseModel):
+    model_size: str
+
+class SwitchModelRequest(BaseModel):
+    session_id: str
+    model_size: str
+
 @app.post("/api/upload")
-async def upload_video(video: UploadFile = File(...)):
+async def upload_video(
+    video: UploadFile = File(...),
+    model_size: str = Form("large")
+):
     """
     Endpoint to upload a video, parse properties, extract frames,
     and initialize the SAM 2 tracking state.
@@ -69,7 +79,7 @@ async def upload_video(video: UploadFile = File(...)):
         metadata = utils.extract_frames(temp_video_path, frames_dir)
         
         # Initialize SAM 2 inference state
-        sam_helper.init_session_state(session_id, frames_dir)
+        sam_helper.init_session_state(session_id, frames_dir, model_size)
         
         # Register progress status
         task_progress[session_id] = {
@@ -334,6 +344,97 @@ async def delete_session(session_id: str):
         
     except Exception as e:
         print(f"Cleanup error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+def run_model_download_background(model_size: str, ckpt_path: Path):
+    task_id = f"download_{model_size}"
+    try:
+        def progress_cb(percent, current, total):
+            task_progress[task_id]["current"] = percent
+            task_progress[task_id]["total"] = 100
+            task_progress[task_id]["message"] = f"{current}MB / {total}MB"
+            task_progress[task_id]["status"] = "downloading"
+            
+        from backend import sam_helper
+        sam_helper.download_weights(model_size, ckpt_path, progress_cb)
+        task_progress[task_id]["status"] = "completed"
+        task_progress[task_id]["message"] = "Download complete!"
+        task_progress[task_id]["current"] = 100
+    except Exception as e:
+        print(f"Background download error: {e}")
+        task_progress[task_id]["status"] = "failed"
+        task_progress[task_id]["message"] = f"Download failed: {str(e)}"
+
+@app.get("/api/models")
+async def get_models_status():
+    """
+    Returns the download status and metadata of all SAM 2.1 model sizes.
+    """
+    status = []
+    for model_id, model_info in SAM2_MODELS.items():
+        ckpt_path = CHECKPOINT_DIR / model_info["checkpoint"]
+        status.append({
+            "id": model_id,
+            "label": model_info["label"],
+            "checkpoint": model_info["checkpoint"],
+            "downloaded": ckpt_path.exists(),
+            "size": "80 MB" if model_id == "tiny" else "180 MB" if model_id == "small" else "300 MB" if model_id == "medium" else "898 MB"
+        })
+    return status
+
+@app.post("/api/models/download")
+async def trigger_model_download(req: DownloadRequest, background_tasks: BackgroundTasks):
+    """
+    Triggers the download of model weights in a background task.
+    """
+    model_size = req.model_size
+    if model_size not in SAM2_MODELS:
+        raise HTTPException(status_code=400, detail="Invalid model size")
+        
+    ckpt_path = CHECKPOINT_DIR / SAM2_MODELS[model_size]["checkpoint"]
+    if ckpt_path.exists():
+        return {"status": "already_downloaded"}
+        
+    task_id = f"download_{model_size}"
+    
+    if task_id in task_progress and task_progress[task_id]["status"] == "downloading":
+        return {"status": "started", "task_id": task_id}
+        
+    task_progress[task_id] = {
+        "status": "downloading",
+        "current": 0,
+        "total": 100,
+        "message": "Initializing download..."
+    }
+    
+    background_tasks.add_task(run_model_download_background, model_size, ckpt_path)
+    return {"status": "started", "task_id": task_id}
+
+@app.post("/api/session/model")
+async def switch_session_model(req: SwitchModelRequest):
+    """
+    Switches the model size for the active session, clearing existing masks.
+    """
+    try:
+        session_id = req.session_id
+        model_size = req.model_size
+        
+        session_workspace = WORKSPACE_DIR / session_id
+        if not session_workspace.exists():
+            raise HTTPException(status_code=400, detail="Invalid session ID")
+            
+        frames_dir = session_workspace / "raw_frames"
+        
+        # Re-initialize state with new model size
+        sam_helper.init_session_state(session_id, frames_dir, model_size)
+        
+        # Clear existing mask images from disk
+        masks_dir = session_workspace / "masks"
+        shutil.rmtree(masks_dir, ignore_errors=True)
+        masks_dir.mkdir(parents=True, exist_ok=True)
+        
+        return {"status": "success", "model_size": model_size}
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 # Mount Frontend static files

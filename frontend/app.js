@@ -13,6 +13,9 @@ const state = {
     isPlaying: false,
     playInterval: null,
     
+    // Selected model size (tiny, small, medium, large)
+    selectedModelSize: 'large',
+    
     // Prompts state: frameIdx -> { coords: [[x,y], ...], labels: [1, 0, ...] }
     prompts: {},
     activeMode: 'add', // 'add' (positive click) or 'remove' (negative click)
@@ -78,7 +81,19 @@ const elements = {
     downloadLink: document.getElementById('download-link'),
     
     statusBadge: document.getElementById('status-badge'),
-    statusText: document.getElementById('status-text')
+    statusText: document.getElementById('status-text'),
+    
+    // Model modal elements
+    modelModal: document.getElementById('model-modal'),
+    modelSelectBadge: document.getElementById('model-select-badge'),
+    closeModelModalBtn: document.getElementById('close-model-modal-btn'),
+    modelList: document.getElementById('model-list'),
+    modelDownloadProgressContainer: document.getElementById('model-download-progress-container'),
+    modelDownloadTitleText: document.getElementById('model-download-title-text'),
+    modelDownloadProgressBar: document.getElementById('model-download-progress-bar'),
+    modelDownloadProgressPercentage: document.getElementById('model-download-progress-percentage'),
+    modelDownloadProgressMessage: document.getElementById('model-download-progress-message'),
+    activeModelText: document.getElementById('active-model-text')
 };
 
 // Canvas 2D context
@@ -91,6 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupPlaybackHandlers();
     setupKeyboardNavigation();
     setupExportHandlers();
+    setupModelSelectionHandlers();
 });
 
 // --- NOTIFICATION UTILITY ---
@@ -142,11 +158,14 @@ function setupUploadHandlers() {
 }
 
 async function handleVideoUpload(file) {
+    const modelSize = state.selectedModelSize || 'large';
+    
     const formData = new FormData();
     formData.append('video', file);
+    formData.append('model_size', modelSize);
     
     // Set UI Loading State
-    showLoader(true, "Uploading video and extracting frames...");
+    showLoader(true, "Uploading video and initializing SAM 2 model...");
     updateStatus("Uploading...", "processing");
     
     try {
@@ -189,6 +208,18 @@ async function handleVideoUpload(file) {
         // Update Info Card
         elements.infoResolution.textContent = `${state.width} × ${state.height}`;
         elements.infoFps.textContent = `${state.fps.toFixed(1)} fps`;
+        
+        // Update Active Model text badge in header
+        const modelLabels = {
+            "tiny": "Meta SAM 2.1 Tiny",
+            "small": "Meta SAM 2.1 Small",
+            "medium": "Meta SAM 2.1 Medium",
+            "large": "Meta SAM 2.1 Large"
+        };
+        const activeModelText = document.getElementById('active-model-text');
+        if (activeModelText) {
+            activeModelText.textContent = modelLabels[modelSize] || "Meta SAM 2.1 Large";
+        }
         
         // Set up Timeline Slider
         elements.timelineSlider.max = state.frameCount - 1;
@@ -704,10 +735,262 @@ async function resetAllSessionPrompts() {
         enableWorkspace(false);
         updateStatus("Idle", "idle");
         
+        const activeModelText = document.getElementById('active-model-text');
+        if (activeModelText) {
+            activeModelText.textContent = "Meta SAM 2.1 Large";
+        }
+        
     } catch (e) {
         showLoader(false);
         showToast("Reset failed: " + e.message, "error");
     }
+}
+
+// --- MODEL SELECTION MODAL HANDLERS ---
+function setupModelSelectionHandlers() {
+    // Open modal on clicking the badge
+    elements.modelSelectBadge.addEventListener('click', openModelModal);
+    
+    // Close modal on clicking cross button
+    elements.closeModelModalBtn.addEventListener('click', closeModelModal);
+    
+    // Close modal on clicking outside content area
+    elements.modelModal.addEventListener('click', (e) => {
+        if (e.target === elements.modelModal) {
+            closeModelModal();
+        }
+    });
+}
+
+async function openModelModal() {
+    elements.modelModal.classList.remove('hidden');
+    await refreshModelList();
+}
+
+function closeModelModal() {
+    elements.modelModal.classList.add('hidden');
+}
+
+async function refreshModelList() {
+    try {
+        const response = await fetch('/api/models');
+        if (!response.ok) throw new Error("Failed to fetch model status");
+        
+        const models = await response.json();
+        renderModelItems(models);
+    } catch (e) {
+        showToast("Error loading model list: " + e.message, "error");
+    }
+}
+
+function renderModelItems(models) {
+    elements.modelList.innerHTML = '';
+    
+    const descriptions = {
+        "tiny": "Best for extremely fast operations and low-end GPUs (e.g. GTX 10-series, 2GB-4GB VRAM).",
+        "small": "Great balance between speed and quality for mid-range GPUs (e.g. RTX 2060/3050).",
+        "medium": "Excellent details and segmentation fidelity (requires ~6GB VRAM).",
+        "large": "Meta's flagship SAM 2.1 model. Ultimate accuracy, but requires ~8GB+ VRAM."
+    };
+    
+    models.forEach(model => {
+        const isActive = state.selectedModelSize === model.id;
+        
+        const item = document.createElement('div');
+        item.className = `model-item ${isActive ? 'active' : ''}`;
+        
+        let infoHTML = `
+            <div class="model-info-area">
+                <div class="model-title-row">
+                    <span class="model-name">${model.label}</span>
+                    <span class="model-size-badge">${model.size}</span>
+                </div>
+                <span class="model-desc-text">${descriptions[model.id]}</span>
+            </div>
+        `;
+        
+        let actionHTML = '';
+        if (isActive) {
+            actionHTML = `
+                <div class="model-action-area">
+                    <span class="model-status-label"><i class="fa-solid fa-circle-check"></i> Active</span>
+                </div>
+            `;
+        } else if (model.downloaded) {
+            actionHTML = `
+                <div class="model-action-area">
+                    <button class="btn btn-secondary select-model-btn" data-model-id="${model.id}">Select</button>
+                </div>
+            `;
+        } else {
+            actionHTML = `
+                <div class="model-action-area">
+                    <button class="btn btn-primary download-model-btn" data-model-id="${model.id}"><i class="fa-solid fa-cloud-arrow-down"></i> Download</button>
+                </div>
+            `;
+        }
+        
+        item.innerHTML = infoHTML + actionHTML;
+        elements.modelList.appendChild(item);
+    });
+    
+    // Add event listeners to select and download buttons
+    document.querySelectorAll('.select-model-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            const modelId = e.target.getAttribute('data-model-id');
+            await handleSelectModel(modelId);
+        });
+    });
+    
+    document.querySelectorAll('.download-model-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            const modelId = e.target.getAttribute('data-model-id');
+            await handleDownloadModel(modelId);
+        });
+    });
+}
+
+async function handleSelectModel(modelId) {
+    if (state.sessionId) {
+        if (!confirm("Switching model size mid-session will clear your current click selections on this video. Do you want to proceed?")) {
+            return;
+        }
+        
+        showLoader(true, "Switching SAM model size on server...");
+        updateStatus("Switching...", "processing");
+        
+        try {
+            const response = await fetch('/api/session/model', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    session_id: state.sessionId,
+                    model_size: modelId
+                })
+            });
+            
+            if (!response.ok) throw new Error("Failed to switch model on server");
+            
+            // Clear local states
+            state.prompts = {};
+            state.undoStack = {};
+            state.redoStack = {};
+            state.maskCache = {};
+            
+            state.selectedModelSize = modelId;
+            updateKeyframeIndicators();
+            
+            const modelLabels = {
+                "tiny": "Meta SAM 2.1 Tiny",
+                "small": "Meta SAM 2.1 Small",
+                "medium": "Meta SAM 2.1 Medium",
+                "large": "Meta SAM 2.1 Large"
+            };
+            elements.activeModelText.textContent = modelLabels[modelId];
+            
+            // Refresh editor frame
+            await renderFrame(state.currentFrame);
+            
+            showLoader(false);
+            updateStatus("Ready", "ready");
+            showToast(`Switched to ${modelLabels[modelId]} successfully!`, "success");
+            closeModelModal();
+            
+        } catch (e) {
+            showLoader(false);
+            updateStatus("Ready", "ready");
+            showToast("Switch failed: " + e.message, "error");
+        }
+    } else {
+        // No active session: just select it for the next upload
+        state.selectedModelSize = modelId;
+        
+        const modelLabels = {
+            "tiny": "Meta SAM 2.1 Tiny",
+            "small": "Meta SAM 2.1 Small",
+            "medium": "Meta SAM 2.1 Medium",
+            "large": "Meta SAM 2.1 Large"
+        };
+        elements.activeModelText.textContent = modelLabels[modelId];
+        showToast(`Selected ${modelLabels[modelId]} for next upload`, "success");
+        closeModelModal();
+    }
+}
+
+async function handleDownloadModel(modelId) {
+    // Disable buttons during download
+    document.querySelectorAll('.download-model-btn, .select-model-btn').forEach(btn => btn.disabled = true);
+    
+    elements.modelDownloadProgressContainer.classList.remove('hidden');
+    elements.modelDownloadProgressBar.style.width = '0%';
+    elements.modelDownloadProgressPercentage.textContent = '0%';
+    elements.modelDownloadProgressMessage.textContent = 'Initializing download...';
+    
+    const modelLabels = {
+        "tiny": "SAM 2.1 Tiny",
+        "small": "SAM 2.1 Small",
+        "medium": "SAM 2.1 Medium",
+        "large": "SAM 2.1 Large"
+    };
+    elements.modelDownloadTitleText.textContent = `Downloading ${modelLabels[modelId]} weights...`;
+    
+    try {
+        const response = await fetch('/api/models/download', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model_size: modelId })
+        });
+        
+        if (!response.ok) throw new Error("Download request failed");
+        
+        pollModelDownloadProgress(modelId);
+        
+    } catch (e) {
+        document.querySelectorAll('.download-model-btn, .select-model-btn').forEach(btn => btn.disabled = false);
+        elements.modelDownloadProgressContainer.classList.add('hidden');
+        showToast("Download failed: " + e.message, "error");
+    }
+}
+
+function pollModelDownloadProgress(modelId) {
+    const taskId = `download_${modelId}`;
+    const pollInterval = setInterval(async () => {
+        try {
+            const response = await fetch(`/api/progress/${taskId}`);
+            if (!response.ok) return;
+            
+            const progress = await response.json();
+            
+            if (progress.status === "downloading") {
+                const percent = progress.current;
+                elements.modelDownloadProgressBar.style.width = `${percent}%`;
+                elements.modelDownloadProgressPercentage.textContent = `${percent}%`;
+                elements.modelDownloadProgressMessage.textContent = progress.message;
+            } 
+            else if (progress.status === "completed") {
+                clearInterval(pollInterval);
+                elements.modelDownloadProgressBar.style.width = '100%';
+                elements.modelDownloadProgressPercentage.textContent = '100%';
+                elements.modelDownloadProgressMessage.textContent = "Download complete!";
+                
+                showToast(`Weights for ${modelId} downloaded successfully!`, "success");
+                
+                setTimeout(() => {
+                    elements.modelDownloadProgressContainer.classList.add('hidden');
+                    refreshModelList();
+                }, 1000);
+            } 
+            else if (progress.status === "failed") {
+                clearInterval(pollInterval);
+                elements.modelDownloadProgressContainer.classList.add('hidden');
+                refreshModelList();
+                showToast("Download failed: " + progress.message, "error");
+            }
+            
+        } catch (e) {
+            console.error("Progress polling error:", e);
+        }
+    }, 800);
 }
 
 function updateKeyframeIndicators() {

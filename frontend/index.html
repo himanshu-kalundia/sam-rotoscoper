@@ -11,7 +11,7 @@
     <!-- FontAwesome for professional editing icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Custom styling stylesheet with cache busting -->
-    <link rel="stylesheet" href="style.css?v=1.1">
+    <link rel="stylesheet" href="style.css?v=1.6">
     <!-- Inline fallback to guarantee hidden elements are hidden even if stylesheet is cached -->
     <style>
         .hidden {
@@ -31,9 +31,9 @@
                 </div>
             </div>
             <div class="header-badges">
-                <div class="badge model-badge">
+                <div id="model-select-badge" class="badge model-badge model-badge-btn" title="Click to change model version">
                     <i class="fa-solid fa-brain"></i>
-                    <span>Meta SAM 2.1 Large</span>
+                    <span id="active-model-text">Meta SAM 2.1 Large</span>
                 </div>
                 <div id="status-badge" class="badge status-badge idle">
                     <i class="fa-solid fa-circle"></i>
@@ -54,6 +54,7 @@
                     <!-- Video Upload Card -->
                     <div class="workspace-card upload-card">
                         <h3><i class="fa-solid fa-video"></i> Video Input</h3>
+                        
                         <div id="drop-zone" class="drop-zone">
                             <i class="fa-solid fa-cloud-arrow-up upload-icon"></i>
                             <p class="upload-main-text">Drag & drop your video here</p>
@@ -243,9 +244,39 @@
         </main>
     </div>
 
+    <!-- Model Selection Modal -->
+    <div id="model-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fa-solid fa-brain"></i> Select SAM Model Version</h2>
+                <button id="close-model-modal-btn" class="modal-close-btn">&times;</button>
+            </div>
+            <p class="modal-desc">Smaller models run faster and use less VRAM. Larger models offer higher segmentation accuracy.</p>
+            <div class="modal-body">
+                <div id="model-list" class="model-list">
+                    <!-- Dynamic model rows will be inserted here -->
+                </div>
+                
+                <!-- Model Download Progress -->
+                <div id="model-download-progress-container" class="model-download-progress-container hidden">
+                    <div class="model-download-progress-title">
+                        <i class="fa-solid fa-cloud-arrow-down"></i> <span id="model-download-title-text">Downloading weights...</span>
+                    </div>
+                    <div class="progress-bar-wrapper">
+                        <div id="model-download-progress-bar" class="progress-bar"></div>
+                    </div>
+                    <div class="progress-info">
+                        <span id="model-download-progress-percentage">0%</span>
+                        <span id="model-download-progress-message">0MB / 0MB</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Notification Toast -->
     <div id="toast-container" class="toast-container"></div>
 
-    <script src="app.js?v=1.4"></script>
+    <script src="app.js?v=1.6"></script>
 </body>
 </html>

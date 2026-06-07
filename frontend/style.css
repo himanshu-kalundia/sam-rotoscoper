@@ -976,3 +976,199 @@ body {
 .hidden {
     display: none !important;
 }
+
+/* ==========================================================================
+   MODEL SELECTION MODAL DIALOG STYLING
+   ========================================================================== */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(5, 6, 8, 0.85);
+    backdrop-filter: blur(8px);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.3s ease;
+}
+
+.modal-content {
+    background: #11151f;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    width: 90%;
+    max-width: 550px;
+    padding: 24px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), var(--glow-cyan);
+    animation: modalScale 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.1);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+@keyframes modalScale {
+    from { transform: scale(0.92); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 12px;
+}
+
+.modal-header h2 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+}
+
+.modal-header h2 i {
+    color: var(--color-accent);
+}
+
+.modal-close-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 24px;
+    cursor: pointer;
+    transition: color 0.2s;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+}
+
+.modal-close-btn:hover {
+    color: var(--color-danger);
+    background: rgba(255, 0, 85, 0.05);
+}
+
+.modal-desc {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin-top: -4px;
+}
+
+.modal-body {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.model-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.model-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 18px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    transition: all 0.2s ease;
+}
+
+.model-item:hover {
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.model-item.active {
+    border-color: var(--color-success);
+    background: rgba(0, 255, 135, 0.02);
+}
+
+.model-info-area {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.model-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.model-name {
+    font-family: 'Outfit', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.model-size-badge {
+    font-size: 10px;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-secondary);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.model-desc-text {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.model-action-area {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.model-status-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-success);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.model-download-progress-container {
+    padding: 14px 18px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.model-download-progress-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-accent);
+}
+
+.model-badge-btn {
+    cursor: pointer;
+    user-select: none;
+    transition: all var(--transition-speed) ease;
+}
+
+.model-badge-btn:hover {
+    background: rgba(0, 242, 254, 0.08);
+    border-color: var(--color-accent);
+    box-shadow: var(--glow-cyan);
+    transform: translateY(-1px);
+}
+
