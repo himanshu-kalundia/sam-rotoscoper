@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Antigravity Rotoscoper - Interactive SAM 2 Video Segmentation</title>
+    <!-- Google Fonts: Outfit for titles, Inter for UI text -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome for professional editing icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom styling stylesheet with cache busting -->
+    <link rel="stylesheet" href="style.css?v=1.1">
+    <!-- Inline fallback to guarantee hidden elements are hidden even if stylesheet is cached -->
+    <style>
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- HEADER -->
+        <header class="app-header">
+            <div class="logo-area">
+                <i class="fa-solid fa-wand-magic-sparkles logo-icon"></i>
+                <div class="logo-text">
+                    <h1>Antigravity Rotoscoper</h1>
+                    <span>Next-Gen Video Segmentation</span>
+                </div>
+            </div>
+            <div class="header-badges">
+                <div class="badge model-badge">
+                    <i class="fa-solid fa-brain"></i>
+                    <span>Meta SAM 2.1 Large</span>
+                </div>
+                <div id="status-badge" class="badge status-badge idle">
+                    <i class="fa-solid fa-circle"></i>
+                    <span id="status-text">Idle</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- MAIN LAYOUT -->
+        <main class="app-workspace">
+            <!-- LEFT CONTROL PANEL -->
+            <section class="panel left-panel">
+                <div class="panel-header">
+                    <i class="fa-solid fa-sliders"></i>
+                    <h2>Control Panel</h2>
+                </div>
+                <div class="panel-content">
+                    <!-- Video Upload Card -->
+                    <div class="workspace-card upload-card">
+                        <h3><i class="fa-solid fa-video"></i> Video Input</h3>
+                        <div id="drop-zone" class="drop-zone">
+                            <i class="fa-solid fa-cloud-arrow-up upload-icon"></i>
+                            <p class="upload-main-text">Drag & drop your video here</p>
+                            <p class="upload-sub-text">MP4, MOV, or WebM up to 10 seconds</p>
+                            <button id="browse-btn" class="btn btn-secondary"><i class="fa-solid fa-folder-open"></i> Browse Files</button>
+                            <input type="file" id="video-input" accept="video/mp4,video/quicktime,video/webm" style="display: none;">
+                        </div>
+                        <div id="video-details" class="video-details hidden">
+                            <div class="detail-row">
+                                <span class="detail-label">Name:</span>
+                                <span id="video-name" class="detail-value">-</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Duration:</span>
+                                <span id="video-duration" class="detail-value">-</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label">Frames:</span>
+                                <span id="video-frames" class="detail-value">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Prompt Tool Card -->
+                    <div class="workspace-card tool-card disabled" id="interaction-card">
+                        <h3><i class="fa-solid fa-pen-nib"></i> Interactive Selection</h3>
+                        <p class="card-instruction">Click on the video frame to select the subject. Use left-click to include and right-click to exclude.</p>
+                        
+                        <div class="prompt-mode-toggle">
+                            <button id="mode-add-btn" class="btn toggle-btn active" data-mode="add">
+                                <i class="fa-solid fa-circle-plus text-success"></i> Add Selection
+                            </button>
+                            <button id="mode-remove-btn" class="btn toggle-btn" data-mode="remove">
+                                <i class="fa-solid fa-circle-minus text-danger"></i> Remove Selection
+                            </button>
+                        </div>
+
+                        <div class="tool-actions">
+                            <button id="clear-frame-prompts" class="btn btn-action" title="Clear prompts on current frame">
+                                <i class="fa-solid fa-trash-can"></i> Clear Frame
+                            </button>
+                            <button id="clear-all-prompts" class="btn btn-action btn-danger-action" title="Reset all prompts in video">
+                                <i class="fa-solid fa-arrow-rotate-left"></i> Reset All
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Propagation Card -->
+                    <div class="workspace-card propagation-card disabled" id="propagation-card">
+                        <h3><i class="fa-solid fa-forward-fast"></i> Temporal Tracking</h3>
+                        <p class="card-instruction">Once you segment the object on one or more frames, propagate the selection across the entire video.</p>
+                        
+                        <button id="propagate-btn" class="btn btn-primary btn-glow btn-full">
+                            <i class="fa-solid fa-play"></i> Propagate Tracking
+                        </button>
+
+                        <div id="progress-container" class="progress-container hidden">
+                            <div class="progress-bar-wrapper">
+                                <div id="progress-bar" class="progress-bar"></div>
+                            </div>
+                            <div class="progress-info">
+                                <span id="progress-percentage">0%</span>
+                                <span id="progress-message">Tracking object...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- CENTRAL CANVAS WORKSPACE -->
+            <section class="center-workspace">
+                <div class="canvas-container-outer">
+                    <!-- Overlay loading screen -->
+                    <div id="workspace-loader" class="workspace-loader hidden">
+                        <div class="spinner"></div>
+                        <p id="loader-text">Uploading and extracting frames...</p>
+                    </div>
+
+                    <!-- Empty state placeholder -->
+                    <div id="canvas-placeholder" class="canvas-placeholder">
+                        <i class="fa-solid fa-film placeholder-icon"></i>
+                        <h2>No Video Loaded</h2>
+                        <p>Upload a video from the control panel to begin rotoscoping.</p>
+                    </div>
+
+                    <!-- Dynamic Canvas Area -->
+                    <div id="canvas-wrapper" class="canvas-wrapper hidden">
+                        <canvas id="editor-canvas"></canvas>
+                        <!-- Prompt overlay dots will be drawn in JS on the canvas -->
+                    </div>
+                </div>
+
+                <!-- VIDEO PLAYER CONTROLS -->
+                <div class="video-controls disabled" id="video-controls">
+                    <div class="control-buttons">
+                        <button id="control-prev-btn" class="control-btn" title="Previous Frame (Left Arrow)">
+                            <i class="fa-solid fa-backward-step"></i>
+                        </button>
+                        <button id="control-play-btn" class="control-btn play-btn" title="Play / Pause (Space)">
+                            <i class="fa-solid fa-play"></i>
+                        </button>
+                        <button id="control-next-btn" class="control-btn" title="Next Frame (Right Arrow)">
+                            <i class="fa-solid fa-forward-step"></i>
+                        </button>
+                    </div>
+
+                    <div class="timeline-container">
+                        <input type="range" id="timeline-slider" min="0" max="100" value="0" class="timeline-slider">
+                        <div id="keyframe-ticks" class="keyframe-ticks"></div>
+                    </div>
+
+                    <div class="frame-indicator">
+                        <span id="current-frame-lbl">000</span> / <span id="total-frames-lbl">000</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- RIGHT EXPORT & METADATA PANEL -->
+            <section class="panel right-panel">
+                <div class="panel-header">
+                    <i class="fa-solid fa-file-export"></i>
+                    <h2>Export & Info</h2>
+                </div>
+                <div class="panel-content">
+                    <!-- Performance panel -->
+                    <div class="workspace-card info-card">
+                        <h3><i class="fa-solid fa-microchip"></i> System Hardware</h3>
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <span class="info-label">Active GPU</span>
+                                <span class="info-value text-success"><i class="fa-solid fa-bolt"></i> RTX 4060 GPU</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">VRAM Mode</span>
+                                <span class="info-value">8GB (bfloat16 enabled)</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Resolution</span>
+                                <span id="info-resolution" class="info-value">-</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Original FPS</span>
+                                <span id="info-fps" class="info-value">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Keyframes tracker -->
+                    <div class="workspace-card keyframes-card disabled" id="keyframes-card">
+                        <h3><i class="fa-solid fa-key"></i> Prompt Keyframes</h3>
+                        <p class="card-instruction">Click prompts are stored as keyframes. Click on any keyframe to jump directly to that frame.</p>
+                        <div id="keyframes-list" class="keyframes-list">
+                            <div class="no-keyframes">No prompts placed yet</div>
+                        </div>
+                    </div>
+
+                    <!-- Export card -->
+                    <div class="workspace-card export-card disabled" id="export-card">
+                        <h3><i class="fa-solid fa-circle-arrow-down"></i> Output Export</h3>
+                        <div class="form-group">
+                            <label for="export-mode-select">Render Mode</label>
+                            <select id="export-mode-select" class="form-select">
+                                <option value="overlay">Green Mint Mask Overlay (MP4)</option>
+                                <option value="green_screen">Chroma Key / Green Screen (MP4)</option>
+                                <option value="cutout">Cutout on Pure Black (MP4)</option>
+                                <option value="zip">Transparent PNG Sequence (ZIP)</option>
+                            </select>
+                        </div>
+
+                        <button id="export-btn" class="btn btn-secondary btn-full"><i class="fa-solid fa-gear"></i> Render Output</button>
+
+                        <div id="export-progress-container" class="progress-container hidden">
+                            <div class="progress-bar-wrapper">
+                                <div id="export-progress-bar" class="progress-bar"></div>
+                            </div>
+                            <div class="progress-info">
+                                <span id="export-progress-message">Encoding video...</span>
+                            </div>
+                        </div>
+
+                        <a id="download-link" class="btn btn-success btn-glow btn-full hidden text-center" href="" download>
+                            <i class="fa-solid fa-file-arrow-down"></i> Download Rotoscope
+                        </a>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <script src="app.js?v=1.2"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+# Core Backend
+fastapi>=0.110.0
+uvicorn>=0.28.0
+python-multipart>=0.0.9
+
+# Media and Image Processing
+opencv-python>=4.9.0.80
+numpy>=1.26.0
+pillow>=10.2.0
+
+# PyTorch & SAM 2 (Note: PyTorch is installed with CUDA in the install script)
+# segment-anything-2 (Installed in editable mode from cloned repo)
+huggingface_hub>=0.20.0
+requests>=2.31.0
+tqdm>=4.66.0
