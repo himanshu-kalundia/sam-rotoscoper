@@ -1,7 +1,7 @@
-# Antigravity Rotoscoper 🪄✨
+# SAM Rotoscoper 🪄✨
 > Next-Generation Interactive Video Segmentation Powered by Meta SAM 2.1 Large
 
-Antigravity Rotoscoper is a premium, web-based interactive video segmentation tool. It leverages Meta's **Segment Anything Model 2.1 (SAM 2.1 Hiera Large)** to track and segment subjects in videos with professional precision. This application is optimized for Windows with NVIDIA CUDA acceleration (bfloat16 enabled) and provides a clean, responsive dark-themed workspace.
+SAM Rotoscoper is a premium, web-based interactive video segmentation tool. It leverages Meta's **Segment Anything Model 2.1 (SAM 2.1 Hiera Large)** to track and segment subjects in videos with professional precision. This application is optimized for Windows with NVIDIA CUDA acceleration (bfloat16 enabled) and provides a clean, responsive dark-themed workspace.
 
 ---
 
