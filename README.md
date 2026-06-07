@@ -1,12 +1,17 @@
 # SAM Rotoscoper 🪄✨
-> Next-Generation Interactive Video Segmentation Powered by Meta SAM 2.1 Large
+> Next-Generation Interactive Video Segmentation Powered by Meta SAM 2.1 (Tiny, Small, Medium, Large)
 
-SAM Rotoscoper is a premium, web-based interactive video segmentation tool. It leverages Meta's **Segment Anything Model 2.1 (SAM 2.1 Hiera Large)** to track and segment subjects in videos with professional precision. This application is optimized for Windows with NVIDIA CUDA acceleration (bfloat16 enabled) and provides a clean, responsive dark-themed workspace.
+SAM Rotoscoper is a free, web-based interactive video segmentation tool. It leverages Meta's **Segment Anything Model 2.1 (SAM 2.1 Hiera)** to track and segment subjects in videos with professional precision. Optimized for Windows with NVIDIA CUDA acceleration (bfloat16 enabled), the application supports multiple model sizes (Tiny, Small, Medium, Large) and features an interactive dark-themed workspace with automatic VRAM management.
 
 ---
 
 ## 🌟 Key Features
 
+* **Multi-Model Support**: Select between 4 model sizes (Tiny, Small, Medium, Large) directly within the app:
+  * **Tiny / Small**: Highly optimized for speed and lower-end GPUs (2GB–4GB VRAM).
+  * **Medium / Large**: Optimized for maximum boundary accuracy and complex segmentations (6GB–8GB+ VRAM).
+* **On-Demand Weights Downloader**: Download missing model weights directly from the interface with real-time progress bars.
+* **Smart VRAM Management**: Automatically releases old models and clears CUDA memory cache when switching model versions on the fly.
 * **Interactive Point Prompts**: Left-click to include your subject (positive prompt), right-click to exclude backgrounds or incorrect selections (negative prompt).
 * **Temporal Tracking**: Propagate your clicks backward and forward across the entire video. SAM 2 utilizes video memory to predict the mask on adjacent frames.
 * **Multiple Output Render Modes**:
@@ -90,19 +95,23 @@ sam-rotoscoper/
 
 ## 🎬 How to Use (Workflow)
 
-1. **Upload Video**:
-   Drag and drop or browse to select a video (up to 10 seconds long, preferably in `.mp4`, `.mov`, or `.webm`). The backend will extract individual frames and prepare the tracking session.
-2. **Add Prompts (Keyframes)**:
+1. **Select / Download Model**:
+   * Click the model selection badge in the top-right corner of the header (e.g. **Meta SAM 2.1 Large**).
+   * Choose an available model or click **Download** to pull weights for a new model size.
+   * You can choose a model before uploading a video or switch models mid-session (doing so mid-session prompts a warning and resets tracking keyframes).
+2. **Upload Video**:
+   * Drag and drop or browse to select a video (up to 10 seconds long, preferably in `.mp4`, `.mov`, or `.webm`). The backend will extract individual frames and prepare the tracking session.
+3. **Add Prompts (Keyframes)**:
    * Navigate to the frame where your object is most visible.
    * **Left-Click** on the object to add green selection points (to include the subject).
    * **Right-Click** on any incorrectly selected region to add red selection points (to exclude).
    * Keyframe tick marks will appear on the timeline slider indicating where prompts have been placed.
-3. **Propagate Tracking**:
-   Click **Propagate Tracking** on the control panel. The model will track the segmented subject backward and forward across the entire video.
-4. **Review & Refine**:
-   Play back the video to review the result. If the tracking slips on some frames, navigate to that frame, add additional correction prompts, and run **Propagate Tracking** again.
-5. **Render and Export**:
-   Select your preferred **Render Mode** (e.g., Chroma Key or Transparent PNG Sequence) and click **Render Output**. Once completed, click the **Download Rotoscope** button to download the finalized assets.
+4. **Propagate Tracking**:
+   * Click **Propagate Tracking** on the control panel. The model will track the segmented subject backward and forward across the entire video.
+5. **Review & Refine**:
+   * Play back the video to review the result. If the tracking slips on some frames, navigate to that frame, add additional correction prompts, and run **Propagate Tracking** again.
+6. **Render and Export**:
+   * Select your preferred **Render Mode** (e.g., Chroma Key or Transparent PNG Sequence) and click **Render Output**. Once completed, click the **Download Rotoscope** button to download the finalized assets.
 
 ---
 
