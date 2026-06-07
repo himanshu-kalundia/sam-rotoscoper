@@ -115,6 +115,9 @@ sam-rotoscoper/
 | `Left Arrow` | Step backward 1 frame |
 | `Left-Click` | Add positive prompt (Include area) |
 | `Right-Click` | Add negative prompt (Exclude area) |
+| `Ctrl + Z` | Undo last prompt click / action on current frame |
+| `Ctrl + Y` or `Ctrl + Shift + Z` | Redo last prompt click / action on current frame |
+| `Escape` | Clear all prompts on current frame |
 
 ---
 

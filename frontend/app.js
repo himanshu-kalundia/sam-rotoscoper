@@ -17,6 +17,10 @@ const state = {
     prompts: {},
     activeMode: 'add', // 'add' (positive click) or 'remove' (negative click)
     
+    // Undo/Redo stacks: frameIdx -> Array of prompt snapshots
+    undoStack: {},
+    redoStack: {},
+    
     // Image cache to prevent flashing while scrubbing/playing
     imageCache: {},
     maskCache: {}
@@ -166,6 +170,8 @@ async function handleVideoUpload(file) {
         state.frameCount = data.frame_count;
         state.currentFrame = 0;
         state.prompts = {};
+        state.undoStack = {};
+        state.redoStack = {};
         
         // Clear UI keyframe ticks and items
         updateKeyframeIndicators();
@@ -401,8 +407,12 @@ async function handleCanvasClick(e, forceSubtract = false) {
     const isSubtract = forceSubtract || state.activeMode === 'remove' || e.button === 2;
     const label = isSubtract ? 0 : 1;
     
-    // Append prompt to our active frame state
     const frameIdx = state.currentFrame;
+    
+    // Save state for undo before modifying
+    saveUndoState(frameIdx);
+    
+    // Append prompt to our active frame state
     if (!state.prompts[frameIdx]) {
         state.prompts[frameIdx] = { coords: [], labels: [] };
     }
@@ -451,12 +461,20 @@ async function handleCanvasClick(e, forceSubtract = false) {
         // Revert local prompt entry on error
         state.prompts[frameIdx].coords.pop();
         state.prompts[frameIdx].labels.pop();
+        
+        // Also pop from undo stack so it matches
+        if (state.undoStack[frameIdx]) {
+            state.undoStack[frameIdx].pop();
+        }
     }
 }
 
 async function clearCurrentFramePrompts() {
     const frameIdx = state.currentFrame;
     if (!state.prompts[frameIdx]) return;
+    
+    // Save undo state before clearing
+    saveUndoState(frameIdx);
     
     delete state.prompts[frameIdx];
     delete state.maskCache[frameIdx];
@@ -492,6 +510,141 @@ async function clearCurrentFramePrompts() {
     }
 }
 
+// --- UNDO AND REDO HELPER FUNCTIONS ---
+function saveUndoState(frameIdx) {
+    if (!state.undoStack[frameIdx]) {
+        state.undoStack[frameIdx] = [];
+    }
+    
+    // Create a deep copy of the current prompts for this frame
+    const currentPrompts = state.prompts[frameIdx] 
+        ? { 
+            coords: state.prompts[frameIdx].coords.map(c => [...c]), 
+            labels: [...state.prompts[frameIdx].labels] 
+          } 
+        : null;
+        
+    state.undoStack[frameIdx].push(currentPrompts);
+    
+    // Limit stack size to 50 edits
+    if (state.undoStack[frameIdx].length > 50) {
+        state.undoStack[frameIdx].shift();
+    }
+    
+    // Clear redo stack when a new action is performed
+    state.redoStack[frameIdx] = [];
+}
+
+async function undoAction() {
+    const frameIdx = state.currentFrame;
+    if (!state.undoStack[frameIdx] || state.undoStack[frameIdx].length === 0) {
+        showToast("Nothing to undo on this frame", "info");
+        return;
+    }
+    
+    if (!state.redoStack[frameIdx]) {
+        state.redoStack[frameIdx] = [];
+    }
+    
+    // Save current state to redo stack
+    const currentPrompts = state.prompts[frameIdx]
+        ? {
+            coords: state.prompts[frameIdx].coords.map(c => [...c]),
+            labels: [...state.prompts[frameIdx].labels]
+          }
+        : null;
+    state.redoStack[frameIdx].push(currentPrompts);
+    
+    // Restore previous state from undo stack
+    const previousPrompts = state.undoStack[frameIdx].pop();
+    if (previousPrompts) {
+        state.prompts[frameIdx] = previousPrompts;
+    } else {
+        delete state.prompts[frameIdx];
+    }
+    
+    // Send updated state to backend
+    await syncPromptsWithBackend(frameIdx);
+}
+
+async function redoAction() {
+    const frameIdx = state.currentFrame;
+    if (!state.redoStack[frameIdx] || state.redoStack[frameIdx].length === 0) {
+        showToast("Nothing to redo on this frame", "info");
+        return;
+    }
+    
+    if (!state.undoStack[frameIdx]) {
+        state.undoStack[frameIdx] = [];
+    }
+    
+    // Save current state to undo stack
+    const currentPrompts = state.prompts[frameIdx]
+        ? {
+            coords: state.prompts[frameIdx].coords.map(c => [...c]),
+            labels: [...state.prompts[frameIdx].labels]
+          }
+        : null;
+    state.undoStack[frameIdx].push(currentPrompts);
+    
+    // Restore state from redo stack
+    const nextPrompts = state.redoStack[frameIdx].pop();
+    if (nextPrompts) {
+        state.prompts[frameIdx] = nextPrompts;
+    } else {
+        delete state.prompts[frameIdx];
+    }
+    
+    // Send updated state to backend
+    await syncPromptsWithBackend(frameIdx);
+}
+
+async function syncPromptsWithBackend(frameIdx) {
+    if (!state.sessionId) return;
+    
+    showLoader(true, "Updating segment selection...");
+    updateStatus("Predicting...", "processing");
+    
+    const framePrompts = state.prompts[frameIdx];
+    const coords = framePrompts ? framePrompts.coords : [];
+    const labels = framePrompts ? framePrompts.labels : [];
+    
+    try {
+        const response = await fetch('/api/click', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                session_id: state.sessionId,
+                frame_idx: frameIdx,
+                obj_id: 1,
+                coords: coords,
+                labels: labels
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error("Failed to update prompts");
+        }
+        
+        // Remove specific frame mask cache to force download reload
+        delete state.maskCache[frameIdx];
+        
+        // Redraw canvas
+        await renderFrame(frameIdx);
+        
+        // Re-draw keyframe timeline marks
+        updateKeyframeIndicators();
+        
+        showLoader(false);
+        updateStatus("Ready", "ready");
+        
+    } catch (err) {
+        showLoader(false);
+        updateStatus("Prediction Failed", "ready");
+        showToast(err.message, "error");
+    }
+}
+
 async function resetAllSessionPrompts() {
     if (!confirm("Are you sure you want to delete ALL click selections across all frames and start fresh?")) return;
     
@@ -509,6 +662,8 @@ async function resetAllSessionPrompts() {
         
         // Reset local prompt states
         state.prompts = {};
+        state.undoStack = {};
+        state.redoStack = {};
         updateKeyframeIndicators();
         state.maskCache = {};
         state.imageCache = {};
@@ -640,6 +795,23 @@ function setupKeyboardNavigation() {
         // Skip hotkeys if focused on form elements
         if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'SELECT') {
             return;
+        }
+        
+        // Detect Ctrl+Z and Ctrl+Y / Ctrl+Shift+Z for undo/redo
+        if (e.ctrlKey || e.metaKey) {
+            if (e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
+                e.preventDefault();
+                redoAction();
+                return;
+            } else if (e.key === 'z' || e.key === 'Z') {
+                e.preventDefault();
+                undoAction();
+                return;
+            } else if (e.key === 'y' || e.key === 'Y') {
+                e.preventDefault();
+                redoAction();
+                return;
+            }
         }
         
         if (e.key === ' ') {
