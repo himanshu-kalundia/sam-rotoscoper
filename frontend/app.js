@@ -542,6 +542,8 @@ async function undoAction() {
         return;
     }
     
+    showToast("Undoing last prompt...", "success");
+    
     if (!state.redoStack[frameIdx]) {
         state.redoStack[frameIdx] = [];
     }
@@ -573,6 +575,8 @@ async function redoAction() {
         showToast("Nothing to redo on this frame", "info");
         return;
     }
+    
+    showToast("Redoing last prompt...", "success");
     
     if (!state.undoStack[frameIdx]) {
         state.undoStack[frameIdx] = [];
@@ -789,7 +793,7 @@ function stepNextFrame() {
 }
 
 function setupKeyboardNavigation() {
-    document.addEventListener('keydown', (e) => {
+    window.addEventListener('keydown', (e) => {
         if (!state.sessionId) return;
         
         // Skip hotkeys if focused on form elements
@@ -799,16 +803,25 @@ function setupKeyboardNavigation() {
         
         // Detect Ctrl+Z and Ctrl+Y / Ctrl+Shift+Z for undo/redo
         if (e.ctrlKey || e.metaKey) {
-            if (e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
+            const isZ = e.key === 'z' || e.key === 'Z' || e.code === 'KeyZ' || e.keyCode === 90;
+            const isY = e.key === 'y' || e.key === 'Y' || e.code === 'KeyY' || e.keyCode === 89;
+            
+            if (e.shiftKey && isZ) {
                 e.preventDefault();
+                e.stopPropagation();
+                console.log("Redo triggered via Ctrl+Shift+Z");
                 redoAction();
                 return;
-            } else if (e.key === 'z' || e.key === 'Z') {
+            } else if (isZ) {
                 e.preventDefault();
+                e.stopPropagation();
+                console.log("Undo triggered via Ctrl+Z");
                 undoAction();
                 return;
-            } else if (e.key === 'y' || e.key === 'Y') {
+            } else if (isY) {
                 e.preventDefault();
+                e.stopPropagation();
+                console.log("Redo triggered via Ctrl+Y");
                 redoAction();
                 return;
             }
