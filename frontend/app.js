@@ -656,42 +656,57 @@ async function resetAllSessionPrompts() {
     updateStatus("Resetting...", "processing");
     
     try {
-        // Standard clean reset is accomplished by calling DELETE on session and re-uploading implicitly
-        // or re-initializing the tracking state in backend. Let's make an API session reset call.
-        const response = await fetch(`/api/session/${state.sessionId}`, {
-            method: 'DELETE'
-        });
+        // Standard clean reset is accomplished by calling DELETE on session
+        if (state.sessionId) {
+            const response = await fetch(`/api/session/${state.sessionId}`, {
+                method: 'DELETE'
+            });
+            if (!response.ok) throw new Error("Failed to reset session on server");
+        }
         
-        if (!response.ok) throw new Error("Failed to reset session");
-        
-        // Reset local prompt states
+        // Reset local state variables
+        state.sessionId = null;
+        state.width = 0;
+        state.height = 0;
+        state.fps = 30.0;
+        state.frameCount = 0;
+        state.currentFrame = 0;
         state.prompts = {};
         state.undoStack = {};
         state.redoStack = {};
-        updateKeyframeIndicators();
         state.maskCache = {};
         state.imageCache = {};
         
-        // Re-initialize SAM 2 State using the backend
-        const uploadReinit = await fetch('/api/upload', {
-            method: 'POST',
-            // Backend main.py expects file upload, but since we already have the MP4 raw frames directory,
-            // we can just re-initialize the session.
-            // Rather than uploading again, the backend main.py deleted directories, so we must re-initialize.
-            // Let's reload page or just notify user to re-upload.
-            // Wait, to keep it extremely fluid, we'll notify user to upload video again for fresh start.
-            // Actually, we can just delete session and reload.
-        });
+        // Reset file input value to allow re-uploading the same file
+        elements.videoInput.value = "";
+        
+        // Hide details card and reset values
+        elements.videoDetails.classList.add('hidden');
+        elements.videoName.textContent = "-";
+        elements.videoDuration.textContent = "-";
+        elements.videoFrames.textContent = "-";
+        
+        // Reset timeline slider
+        elements.timelineSlider.value = 0;
+        elements.timelineSlider.max = 100;
+        elements.currentFrameLbl.textContent = "000";
+        elements.totalFramesLbl.textContent = "000";
+        
+        // Reset info card values
+        elements.infoResolution.textContent = "-";
+        elements.infoFps.textContent = "-";
+        
+        // Clear timeline markers and keyframe badges
+        updateKeyframeIndicators();
         
         showLoader(false);
-        showToast("Session reset. Please re-upload video to start fresh.", "success");
+        showToast("Session reset successfully! You can now upload a video to start fresh.", "success");
         enableWorkspace(false);
         updateStatus("Idle", "idle");
         
     } catch (e) {
         showLoader(false);
-        showToast("Reset failed. Reloading page...", "error");
-        setTimeout(() => location.reload(), 1500);
+        showToast("Reset failed: " + e.message, "error");
     }
 }
 
