@@ -25,19 +25,19 @@ Write-Host "This will take a few minutes as it downloads large wheel files. Plea
 & .\venv\Scripts\pip.exe install torch torchvision --index-url https://download.pytorch.org/whl/cu124
 Write-Host "PyTorch & torchvision with CUDA successfully installed." -ForegroundColor Green
 
-# 4. Clone SAM 2 Repository
-if (-not (Test-Path "sam2")) {
-    Write-Host "[4/6] Cloning Meta Segment Anything 2 repository..." -ForegroundColor Yellow
-    git clone https://github.com/facebookresearch/sam2.git sam2
-    Write-Host "SAM 2 cloned successfully." -ForegroundColor Green
+# 4. Initialize and update SAM 2 Git Submodule
+if (-not (Test-Path "sam2_repo\setup.py")) {
+    Write-Host "[4/6] Initializing and updating SAM 2 Git submodule..." -ForegroundColor Yellow
+    git submodule update --init --recursive
+    Write-Host "SAM 2 submodule updated successfully." -ForegroundColor Green
 } else {
-    Write-Host "[4/6] SAM 2 repository folder already exists. Skipping clone." -ForegroundColor Green
+    Write-Host "[4/6] SAM 2 submodule already initialized." -ForegroundColor Green
 }
 
 # 5. Install SAM 2 in editable mode (without compiling CUDA custom extensions)
 Write-Host "[5/6] Installing SAM 2 in editable mode (bypassing custom CUDA compile)..." -ForegroundColor Yellow
 $env:SAM2_BUILD_CUDA = "0"
-& .\venv\Scripts\pip.exe install -e .\sam2
+& .\venv\Scripts\pip.exe install -e .\sam2_repo
 Write-Host "SAM 2 library successfully installed in pure PyTorch mode." -ForegroundColor Green
 
 # 6. Install other requirements

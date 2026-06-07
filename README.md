@@ -53,13 +53,15 @@ sam-rotoscoper/
 ## 🚀 Installation & Setup
 
 1. **Clone the Repository**:
+   Clone the repository recursively to automatically fetch the `sam2_repo` submodule:
    ```powershell
-   git clone https://github.com/himanshu-kalundia/sam-rotoscoper.git
+   git clone --recursive https://github.com/himanshu-kalundia/sam-rotoscoper.git
    cd sam-rotoscoper
    ```
+   *Note: If you have already cloned the repository without `--recursive`, run `git submodule update --init --recursive` to pull the submodule.*
 
 2. **Run the Installer**:
-   Open a PowerShell window in the project root folder and execute the installation script. This script automatically sets up the Python virtual environment (`venv`), installs PyTorch with CUDA 12.4 support, clones and configures Meta's SAM 2 repository, installs additional dependencies, and downloads the Hiera Large weights.
+   Open a PowerShell window in the project root folder and execute the installation script. This script automatically sets up the Python virtual environment (`venv`), installs PyTorch with CUDA 12.4 support, initializes and pulls the Meta SAM 2 submodule, installs additional dependencies, and downloads the Hiera Large weights.
    ```powershell
    Set-ExecutionPolicy Bypass -Scope Process
    .\install.ps1
